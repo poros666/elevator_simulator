@@ -226,7 +226,7 @@ class App:
                              bg="#9DA2AD", fg="white",
                              state=tk.NORMAL, command=command, name=name, font=_font())
 
-        frame = tk.Frame(parent, name=frm_name, width=90, height=500, bg="white")
+        frame = tk.Frame(parent, name=frm_name, width=90, height=580, bg="white")
         if frm_name[-1] == "L":
             button(frame, "  1  ", lambda: self._onclick_ele_inside_button("L", int(frm_name[3]), 1),
                    name="1").pack(anchor=tk.N, padx=8, pady=8)
@@ -248,6 +248,10 @@ class App:
                    name="9").pack(anchor=tk.N, padx=8, pady=8)
             button(frame, "  10  ", lambda: self._onclick_ele_inside_button("L", int(frm_name[3]), 10),
                    name="10").pack(anchor=tk.N, padx=8, pady=8)
+            button(frame, "  开  ", lambda: self._onclick_ele_open_close_button(int(frm_name[3]), 1),
+                   name="open").pack(anchor=tk.N, padx=8, pady=8)
+            button(frame, "  报警  ", lambda: self._onclick_ele_alarm_button(),
+                   name="alarm").pack(anchor=tk.N, padx=8, pady=8)
 
             tkui.v_seperator(frame, width=5, bg="#AEBFA0").pack(side=tk.LEFT, fill=tk.Y)
 
@@ -273,6 +277,8 @@ class App:
                    name="19").pack(anchor=tk.N, padx=8, pady=8)
             button(frame, "  20  ", lambda: self._onclick_ele_inside_button("R", int(frm_name[3]), 20),
                    name="20").pack(anchor=tk.N, padx=8, pady=8)
+            button(frame, "  关  ", lambda: self._onclick_ele_open_close_button(int(frm_name[3]), 1),
+                   name="close").pack(anchor=tk.N, padx=8, pady=8)
 
         frame.propagate(False)
 
@@ -386,7 +392,7 @@ class App:
         if tkui.show_confirm("Confirm Exit?"):
             self.root.destroy()
 
-    def _onclick_ele_inside_button(self, ele_part, ele_num="0", target_floor="0"):
+    def _onclick_ele_inside_button(self, ele_part, ele_num=0, target_floor=0):
         # zhaodao but
         frm = self.root.children["frm_mainbody"]
         frm_l = frm.children["ele%d_L" % ele_num]
@@ -422,6 +428,21 @@ class App:
         ask = {"target_direction": target_direction, "current_floor": current_floor}
         outside_ask.append(ask)
 
+    def _onclick_ele_open_close_button(self, ele_num=0, open=0):
+        if ele.ele_set[ele_num]["state"] == State.STOP and ele.ele_set[ele_num]["direction"] == Direction.STOP:
+            if open == 0:
+                ele.ele_set[ele_num]["open"] = False
+                print("door open")
+            if open == 1:
+                ele.ele_set[ele_num]["open"] = True
+                print("door open")
+        else:
+            tkui.show_info("只有在停止的时候才能开门哦！")
+
+    def _onclick_ele_alarm_button(self):
+        tkui.show_info("已报警！")
+
+
 
 class ElevatorSet:
     ele_set = {
@@ -448,11 +469,11 @@ class ElevatorSet:
 def watcher():
     def _test():
         # print(inside_ask)
-        # print(outside_ask)
+        print(outside_ask)
         # print(ele.ele_set[1]["inside_queue"])
         # print("ele_set = ", ele.ele_set[1])
         # print(ele.ele_set[1]["outside_up_queue"])
-        print("print 2:", ele.ele_set[1]["outside_up_queue"][2])
+        # print("print 2:", ele.ele_set[1]["outside_up_queue"][2])
         pass
 
     def _ele_move1():
@@ -466,12 +487,14 @@ def watcher():
                 if ele.ele_set[ele_num]["direction"] == Direction.UP:
                     if not _check_front_free(ele_num, ele.ele_set[ele_num]["floor"]):
                         #  ff not  / SU-->RU
+                        print("SU-->RU")
                         ele.ele_set[ele_num]["state"] = State.RUNNING
                         ele.ele_set[ele_num]["direction"] = Direction.UP
                         ele.ele_set[ele_num]["open"] = False
                         print("door close")
-                    elif _check_front_free(ele_num, ele.ele_set[ele_num]["floor"]):
+                    else:
                         # ff yes / SU-->SS
+                        print("SU-->SS")
                         ele.ele_set[ele_num]["state"] = State.STOP
                         ele.ele_set[ele_num]["direction"] = Direction.STOP
                         ele.ele_set[ele_num]["open"] = False
@@ -479,30 +502,42 @@ def watcher():
                 if ele.ele_set[ele_num]["direction"] == Direction.DOWN:
                     if not _check_front_free(ele_num, ele.ele_set[ele_num]["floor"]):
                         #  ff not  / SD-->RD
+                        print("SD-->RD")
                         ele.ele_set[ele_num]["state"] = State.RUNNING
                         ele.ele_set[ele_num]["direction"] = Direction.DOWN
                         ele.ele_set[ele_num]["open"] = False
                         print("door close")
                     elif _check_front_free(ele_num, ele.ele_set[ele_num]["floor"]):
                         # ff yes / SD-->SS
+                        print("SD-->SS")
                         ele.ele_set[ele_num]["state"] = State.STOP
                         ele.ele_set[ele_num]["direction"] = Direction.STOP
                         ele.ele_set[ele_num]["open"] = False
                         print("door close")
                 if ele.ele_set[ele_num]["direction"] == Direction.STOP:
+                    flag_this_floor = False
+                    if _check_ask_empty(ele_num, ele.ele_set[ele_num]["floor"]) == "this":
+                        # SS-->SS  open door
+                        ele.ele_set[ele_num]["state"] = State.STOP
+                        ele.ele_set[ele_num]["direction"] = Direction.STOP
+                        ele.ele_set[ele_num]["open"] = True
+                        flag_this_floor = True
+                        print("door open")
                     if _check_ask_empty(ele_num, ele.ele_set[ele_num]["floor"]) == "empty":
                         # SS-->SS
                         ele.ele_set[ele_num]["state"] = State.STOP
                         ele.ele_set[ele_num]["direction"] = Direction.STOP
                     if _check_ask_empty(ele_num, ele.ele_set[ele_num]["floor"]) == "up":
                         # SS-->RU
+                        print("SS-->RU")
                         ele.ele_set[ele_num]["state"] = State.RUNNING
                         ele.ele_set[ele_num]["direction"] = Direction.UP
                     if _check_ask_empty(ele_num, ele.ele_set[ele_num]["floor"]) == "down":
                         # SS-->RD
+                        print("SS-->RD")
                         ele.ele_set[ele_num]["state"] = State.RUNNING
                         ele.ele_set[ele_num]["direction"] = Direction.DOWN
-                    if ele.ele_set[ele_num]["open"]:
+                    if ele.ele_set[ele_num]["open"] and flag_this_floor == False:
                         ele.ele_set[ele_num]["open"] = False
                         print("door close")
 
@@ -515,7 +550,7 @@ def watcher():
                             ele.ele_set[ele_num]["state"] = State.STOP
                             ele.ele_set[ele_num]["direction"] = Direction.STOP
                             refresh_ele_inside_button(ele_num, ele.ele_set[ele_num]["floor"])
-                        else:
+                        elif not _check_front_free(ele_num, ele.ele_set[ele_num]["floor"]):
                             # ff0     / RU-->SU
                             print("RU-->SU")
                             ele.ele_set[ele_num]["state"] = State.STOP
@@ -526,13 +561,13 @@ def watcher():
                         print("door open")
                     if ele.ele_set[ele_num]["outside_up_queue"][ele.ele_set[ele_num]["floor"]] == 1:
                         # up  / RU-->SU
+                        print("RU-->SU")
                         ele.ele_set[ele_num]["state"] = State.STOP
                         ele.ele_set[ele_num]["direction"] = Direction.UP
                         # ref out up but
-                        ele.ele_set[ele_num]["outside_up_queue"][ele.ele_set[ele_num]["floor"]] = 0
-                        print("print 2:", ele.ele_set[ele_num]["outside_up_queue"][2])
                         ele.ele_set[ele_num]["open"] = True
                         print("door open")
+                        ele.ele_set[ele_num]["outside_up_queue"][ele.ele_set[ele_num]["floor"]] = 0
                     if ele.ele_set[ele_num]["outside_down_queue"][ele.ele_set[ele_num]["floor"]] == 1:
                         # down  / RU-->SD
                         ele.ele_set[ele_num]["state"] = State.STOP
@@ -680,7 +715,17 @@ def watcher():
             if ele.ele_set[ele_num]["outside_down_queue"][i] == 1:
                 flag = "down"
                 break
-        #print("_check_front_free:", flag)
+        if ele.ele_set[ele_num]["inside_queue"][cur_floor] == 1:
+            flag = "this"
+            ele.ele_set[ele_num]["inside_queue"][cur_floor] = 0
+            refresh_ele_inside_button(ele_num, cur_floor)
+        if ele.ele_set[ele_num]["outside_up_queue"][cur_floor] == 1:
+            flag = "this"
+            ele.ele_set[ele_num]["outside_up_queue"][cur_floor] = 0
+        if ele.ele_set[ele_num]["outside_down_queue"][cur_floor] == 1:
+            ele.ele_set[ele_num]["outside_down_queue"][cur_floor] = 0
+            flag = "this"
+
         return flag
 
     def _main():
@@ -734,26 +779,31 @@ def refresher():
                         "current_floor"]):
                         possible_ele[ele_num] = _ele_distance(ele_num, ask["current_floor"])
                         #print(ele_num, _ele_distance(ele_num, ask["current_floor"]))
-                a = sorted(possible_ele.items(), key=lambda item: item[1])# mkd
-                #print(a[0][0])
-
-                ele.ele_set[a[0][0]]["outside_up_queue"][int(ask["current_floor"])] = 1
-                outside_ask.remove(ask)
-                #print(ele.ele_set[a[0][0]]["floor"], ele.ele_set[a[0][0]]["state"], ele.ele_set[a[0][0]]["direction"], ele.ele_set[a[0][0]]["outside_up_queue"])
-            elif ask["target_direction"] == "D":
-                for ele_num in range(1, 6):
-                    for ele_num in range(1, 6):
-                        if ele.ele_set[ele_num]["direction"] == Direction.STOP:
-                            possible_ele[ele_num] = _ele_distance(ele_num, ask["current_floor"])
-                            #print(ele_num, _ele_distance(ele_num, ask["current_floor"]))
-                        if ele.ele_set[ele_num]["direction"] == Direction.DOWN and ele.ele_set[ele_num]["floor"] >= int(ask[
-                            "current_floor"]):
-                            possible_ele[ele_num] = _ele_distance(ele_num, ask["current_floor"])
-                            #print(ele_num, _ele_distance(ele_num, ask["current_floor"]))
+                if len(possible_ele) == 0:
+                    pass
+                else:
                     a = sorted(possible_ele.items(), key=lambda item: item[1])  # mkd
-                    # print(a[0][0])
+                    ele.ele_set[a[0][0]]["outside_up_queue"][int(ask["current_floor"])] = 1
+                    outside_ask.remove(ask)
+
+            elif ask["target_direction"] == "D":
+                print("ask:", ask)
+                for ele_num in range(1, 6):
+                    if ele.ele_set[ele_num]["direction"] == Direction.STOP:
+                        possible_ele[ele_num] = _ele_distance(ele_num, ask["current_floor"])
+                        # print(ele_num, _ele_distance(ele_num, ask["current_floor"]))
+                    if ele.ele_set[ele_num]["direction"] == Direction.DOWN and ele.ele_set[ele_num]["floor"] >= int(ask[
+                                                                                                                        "current_floor"]):
+                        possible_ele[ele_num] = _ele_distance(ele_num, ask["current_floor"])
+                        # print(ele_num, _ele_distance(ele_num, ask["current_floor"]))
+                if len(possible_ele) == 0:
+                    pass
+                else:
+                    a = sorted(possible_ele.items(), key=lambda item: item[1])  # mkd
                     ele.ele_set[a[0][0]]["outside_down_queue"][int(ask["current_floor"])] = 1
                     outside_ask.remove(ask)
+
+
 
     def _ele_distance(ele_num, current_floor):
         return abs(ele.ele_set[ele_num]["floor"] - int(current_floor))
@@ -804,7 +854,7 @@ def refresher():
 
     def _main():
         while True:
-            time.sleep(0.3)
+            time.sleep(0.1)
             _refresh_ask()
             _refresh_ele_state()
             #_refresh_screen()
@@ -824,14 +874,16 @@ def refresh_screens():
                     frm.children["ele_sc_%d" % i]["text"] = "开%d" % ele.ele_set[i]["floor"]
                 else:
                     frm.children["ele_sc_%d" % i]["text"] = "%d" % ele.ele_set[i]["floor"]
-            if ele.ele_set[i]["direction"] == Direction.UP:
+            if ele.ele_set[i]["direction"] == Direction.UP and ele.ele_set[i]["open"] == False:
                 frm.children["ele_sc_%d" % i]["text"] = "%d↑" % ele.ele_set[i]["floor"]
-            if ele.ele_set[i]["direction"] == Direction.DOWN:
+            if ele.ele_set[i]["direction"] == Direction.DOWN and ele.ele_set[i]["open"] == False:
                 frm.children["ele_sc_%d" % i]["text"] = "%d↓" % ele.ele_set[i]["floor"]
     def _main():
         while True:
             time.sleep(0.1)
+            #mutex.acquire()
             _refresh_screen()
+            #mutex.release()
 
     t = threading.Thread(target=_main, name="refresher")  # guanbi xaincheng
     t.daemon = True
